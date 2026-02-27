@@ -1,0 +1,320 @@
+.dukes-admin-container {
+  min-height: 100vh;
+  background-color: #000000;
+  padding: 20px;
+  color: #ffffff;
+}
+
+.dukes-admin-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dukes-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.dukes-title {
+  font-size: 32px;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.powered-by {
+  font-size: 12px;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.restaurants-section {
+  margin-bottom: 40px;
+}
+
+.restaurants-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.restaurants-section-header h2 {
+  font-size: 24px;
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.refresh-btn-modern {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refresh-btn-modern:hover {
+  background: rgba(255, 107, 107, 0.2);
+  border-color: #ff6b6b;
+}
+
+.refresh-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.6s ease;
+}
+
+.refresh-btn-modern.rotating .refresh-icon {
+  animation: rotate 0.6s linear;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.restaurants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.restaurant-card {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  border: 2px solid #333333;
+  overflow: hidden;
+}
+
+.restaurant-card-header {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.restaurant-card-header:hover {
+  background-color: #252525;
+}
+
+.restaurant-info {
+  flex: 1;
+}
+
+.restaurant-info h3 {
+  font-size: 20px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.restaurant-email {
+  font-size: 14px;
+  color: #999999;
+}
+
+.restaurant-stats {
+  display: flex;
+  gap: 30px;
+  margin: 0 20px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999999;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.expand-icon {
+  font-size: 20px;
+  color: #999999;
+  margin-left: 20px;
+}
+
+.restaurant-details {
+  padding: 20px;
+  background-color: #000000;
+  border-top: 2px solid #333333;
+}
+
+.locations-section,
+.codes-section {
+  margin-bottom: 30px;
+}
+
+.locations-section h4,
+.codes-section h4 {
+  font-size: 16px;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #ff6b6b;
+}
+
+.locations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.location-item {
+  padding: 15px;
+  background-color: #1a1a1a;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.location-item strong {
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.location-item a {
+  color: #0066cc;
+  text-decoration: underline;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.codes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.code-item {
+  padding: 15px;
+  background-color: #1a1a1a;
+  border-radius: 4px;
+  border-left: 4px solid #ff6b6b;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.code-header strong {
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.status-badge.active {
+  background-color: #004400;
+  color: #00ff00;
+}
+
+.status-badge.expired {
+  background-color: #440000;
+  color: #ff0000;
+}
+
+.code-description {
+  font-size: 14px;
+  color: #cccccc;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.code-stats {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: #999999;
+}
+
+.no-data {
+  text-align: center;
+  color: #999999;
+  padding: 20px;
+  font-style: italic;
+}
+
+.dukes-footer {
+  text-align: center;
+  margin-top: 40px;
+}
+
+.back-link {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: color 0.3s ease;
+}
+
+.back-link:hover {
+  color: #ff6b6b;
+}
+
+@media (max-width: 768px) {
+  .restaurant-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .restaurant-stats {
+    width: 100%;
+    justify-content: space-around;
+    margin: 0;
+  }
+
+  .expand-icon {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+  }
+
+  .code-stats {
+    flex-direction: column;
+    gap: 5px;
+  }
+}

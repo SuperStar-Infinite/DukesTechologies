@@ -1,0 +1,219 @@
+// API service for connecting to backend
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+// Helper function to get auth token
+const getToken = () => {
+  return sessionStorage.getItem('token')
+}
+
+// Helper function to set auth token
+const setToken = (token) => {
+  sessionStorage.setItem('token', token)
+}
+
+// Helper function to remove auth token
+const removeToken = () => {
+  sessionStorage.removeItem('token')
+  sessionStorage.removeItem('currentUser')
+}
+
+// Generic API request function
+const apiRequest = async (endpoint, options = {}) => {
+  const token = getToken()
+  
+  const config = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers
+    },
+    ...options
+  }
+
+  // Remove Content-Type for FormData
+  if (options.body instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+    
+    // Read response as text first (can only read once)
+    const text = await response.text()
+    
+    let data
+    // Try to parse as JSON
+    try {
+      data = text ? JSON.parse(text) : {}
+    } catch (e) {
+      // Not JSON, create error with text
+      if (!response.ok) {
+        const error = new Error(text || 'API request failed')
+        error.response = { status: response.status, data: { message: text } }
+        throw error
+      }
+      // If OK but not JSON, return text as message
+      data = { message: text }
+    }
+
+    if (!response.ok) {
+      const error = new Error(data.message || data.error || 'API request failed')
+      error.response = { data, status: response.status }
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('API Error:', error)
+    // If it's already our error object, throw it as is
+    if (error.response) {
+      throw error
+    }
+    // Otherwise wrap it
+    throw new Error(error.message || 'Network error')
+  }
+}
+
+// Auth API
+export const authAPI = {
+  login: async (email, password) => {
+    const data = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    })
+    
+    if (data.token) {
+      setToken(data.token)
+      sessionStorage.setItem('currentUser', JSON.stringify(data.user))
+    }
+    
+    return data
+  },
+
+  getCurrentUser: async () => {
+    return apiRequest('/auth/me')
+  },
+
+  logout: () => {
+    removeToken()
+  }
+}
+
+// Code API
+export const codeAPI = {
+  create: async (codeData) => {
+    return apiRequest('/codes', {
+      method: 'POST',
+      body: JSON.stringify(codeData)
+    })
+  },
+
+  getAll: async () => {
+    return apiRequest('/codes')
+  },
+
+  getByCode: async (code) => {
+    return apiRequest(`/codes/${code}`)
+  }
+}
+
+// Server Validation API
+export const serverAPI = {
+  validate: async (code, billAmount) => {
+    return apiRequest('/server/validate', {
+      method: 'POST',
+      body: JSON.stringify({ code, billAmount })
+    })
+  }
+}
+
+// Restaurant API
+export const restaurantAPI = {
+  completeOnboarding: async (onboardingData) => {
+    return apiRequest('/restaurants/onboarding', {
+      method: 'POST',
+      body: JSON.stringify(onboardingData)
+    })
+  },
+
+  getProfile: async () => {
+    return apiRequest('/restaurants/profile')
+  },
+
+  updateProfile: async (profileData) => {
+    return apiRequest('/restaurants/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    })
+  },
+
+  addLocation: async (locationData) => {
+    return apiRequest('/restaurants/locations', {
+      method: 'POST',
+      body: JSON.stringify(locationData)
+    })
+  },
+
+  updateLocation: async (locationId, locationData) => {
+    return apiRequest(`/restaurants/locations/${locationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(locationData)
+    })
+  },
+
+  deleteLocation: async (locationId) => {
+    return apiRequest(`/restaurants/locations/${locationId}`, {
+      method: 'DELETE'
+    })
+  },
+
+  addCaller: async () => {
+    return apiRequest('/restaurants/callers', {
+      method: 'POST'
+    })
+  },
+
+  testResetCaller: async (callerId, hoursAgo) => {
+    return apiRequest(`/restaurants/callers/${callerId}/test-reset`, {
+      method: 'POST',
+      body: JSON.stringify({ hoursAgo })
+    })
+  }
+}
+
+// Upload API
+export const uploadAPI = {
+  uploadLogo: async (file) => {
+    const formData = new FormData()
+    formData.append('logo', file)
+
+    return apiRequest('/upload/logo', {
+      method: 'POST',
+      body: formData
+    })
+  },
+
+  deleteLogo: async (logoKey) => {
+    return apiRequest('/upload/logo', {
+      method: 'DELETE',
+      body: JSON.stringify({ logoKey })
+    })
+  }
+}
+
+// Dukes API
+export const dukesAPI = {
+  getAllRestaurants: async () => {
+    return apiRequest('/dukes/restaurants')
+  },
+
+  getRestaurantCodes: async (restaurantId) => {
+    return apiRequest(`/dukes/restaurants/${restaurantId}/codes`)
+  },
+
+  getAllCodes: async () => {
+    return apiRequest('/dukes/codes')
+  }
+}
+
+export { getToken, setToken, removeToken }
