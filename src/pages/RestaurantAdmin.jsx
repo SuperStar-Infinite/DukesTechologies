@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { restaurantAPI, codeAPI, uploadAPI } from '../services/api'
+import { restaurantAPI, codeAPI, uploadAPI, stripeAPI } from '../services/api'
+import { loadStripe } from '@stripe/stripe-js'
 import '../styles/RestaurantAdmin.css'
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51T5ursCFQaWcDS8Sq1JyDrT8IE9vPDXtcsBF9xLLUdJFpcWU8UK3R2CUj3FOzMEigoyhBzrxBtVvW6x62ntmaL400g4QxZv6W')
 
 function RestaurantAdmin() {
   const navigate = useNavigate()
@@ -29,6 +32,10 @@ function RestaurantAdmin() {
   })
   const [editingRestaurantName, setEditingRestaurantName] = useState(false)
   const [restaurantNameInput, setRestaurantNameInput] = useState('')
+  const [subscriptionData, setSubscriptionData] = useState(null)
+  const [showCallCreditsModal, setShowCallCreditsModal] = useState(false)
+  const [callCreditsAmount, setCallCreditsAmount] = useState('')
+  const [processingPayment, setProcessingPayment] = useState(false)
 
   // Fetch user data
   const fetchUserData = async () => {
@@ -53,6 +60,16 @@ function RestaurantAdmin() {
     }
   }
 
+  // Fetch subscription data
+  const fetchSubscriptionData = async () => {
+    try {
+      const data = await stripeAPI.getSubscription()
+      setSubscriptionData(data)
+    } catch (error) {
+      console.error('Error fetching subscription data:', error)
+    }
+  }
+
   // Fetch codes
   const fetchCodes = async () => {
     try {
@@ -73,11 +90,116 @@ function RestaurantAdmin() {
     setCurrentUser(user)
     fetchUserData()
     fetchCodes()
+    fetchSubscriptionData()
+
+    // Handle Stripe checkout success
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get('success')
+    const sessionId = urlParams.get('session_id')
+    const creditsSuccess = urlParams.get('credits_success')
+    const creditsCanceled = urlParams.get('credits_canceled')
+
+    if (success === 'true' && sessionId) {
+      // Show success message
+      setMessage('Payment successful! Your subscription is being activated...')
+      
+      // Wait for webhook to process, then fetch updated data with retries
+      const fetchWithRetry = async (retries = 5, delay = 3000) => {
+        for (let i = 0; i < retries; i++) {
+          await new Promise(resolve => setTimeout(resolve, delay))
+          await fetchSubscriptionData()
+          await fetchUserData()
+          
+          // Check if subscription was updated
+          const updatedData = await stripeAPI.getSubscription()
+          if (updatedData.subscriptionPlan !== 'trial' && updatedData.subscriptionStatus !== 'trial') {
+            setMessage('Subscription activated successfully!')
+            window.history.replaceState({}, document.title, '/restaurant/admin')
+            setTimeout(() => setMessage(''), 5000)
+            return
+          }
+        }
+        // If still not updated after retries, show message with refresh option
+        setMessage('Subscription is processing. If it doesn\'t update, please refresh the page.')
+        window.history.replaceState({}, document.title, '/restaurant/admin')
+        setTimeout(() => setMessage(''), 10000)
+      }
+      
+      fetchWithRetry()
+    }
+
+    if (creditsSuccess === 'true') {
+      setMessage('Call credits purchased successfully!')
+      setShowCallCreditsModal(false)
+      setCallCreditsAmount('')
+      
+      // Wait for webhook to process, then fetch with retries
+      const fetchWithRetry = async (retries = 5, delay = 3000) => {
+        for (let i = 0; i < retries; i++) {
+          await new Promise(resolve => setTimeout(resolve, delay))
+          await fetchSubscriptionData()
+          
+          // Check if credits were updated
+          const updatedData = await stripeAPI.getSubscription()
+          if (updatedData.callCredits > 0 || i === retries - 1) {
+            window.history.replaceState({}, document.title, '/restaurant/admin')
+            setTimeout(() => setMessage(''), 5000)
+            return
+          }
+        }
+      }
+      
+      fetchWithRetry()
+    }
+
+    if (creditsCanceled === 'true') {
+      setMessage('Call credits purchase was canceled.')
+      setShowCallCreditsModal(false)
+      window.history.replaceState({}, document.title, '/restaurant/admin')
+      setTimeout(() => setMessage(''), 3000)
+    }
   }, [navigate])
 
+
+  // Purchase call credits
+  const handlePurchaseCallCredits = async (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
+    const amount = parseFloat(callCreditsAmount)
+    
+    if (!callCreditsAmount || isNaN(amount) || amount <= 0) {
+      setMessage('Please enter a valid amount')
+      return
+    }
+
+    setProcessingPayment(true)
+    setMessage('')
+
+    try {
+      // Create a checkout session for call credits
+      const response = await stripeAPI.createCheckoutSession('call_credits', amount)
+      
+      if (response && response.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = response.url
+      } else {
+        setMessage('Failed to create checkout session. Please try again.')
+        setProcessingPayment(false)
+      }
+    } catch (error) {
+      console.error('Call credits purchase error:', error)
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to process payment'
+      setMessage(errorMessage)
+      setProcessingPayment(false)
+    }
+  }
+
   // Calculate caller status
-  // TODO: TESTING MODE - Change back to 48 hours (48 * 60 * 60 * 1000) after testing
-  const COOLING_PERIOD_MS = 10 * 60 * 1000 // 10 minutes for testing (normally 48 hours = 48 * 60 * 60 * 1000)
+  // 72 hour cooldown period
+  const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
   const getCallerStatus = (caller) => {
     if (caller.status === 'active') return { status: 'active', label: 'Active', color: '#ff0000' }
     if (caller.status === 'cooling') {
@@ -145,8 +267,9 @@ function RestaurantAdmin() {
 
       setMessage(`Code "${response.code.code}" created successfully!`)
       
-      // Refresh user data and codes immediately
+      // Refresh user data, subscription data (for call credits), and codes immediately
       await fetchUserData()
+      await fetchSubscriptionData()
       await fetchCodes()
       
       // Reset form
@@ -163,12 +286,175 @@ function RestaurantAdmin() {
   }
 
   if (loading || !userData) {
-    return <div className="loading">Loading...</div>
+    return (
+      <div className="restaurant-admin-container">
+        <div className="restaurant-admin-content" style={{ textAlign: 'center', paddingTop: '50px' }}>
+          <div className="loading" style={{ color: '#fff', fontSize: '18px' }}>Loading...</div>
+        </div>
+      </div>
+    )
   }
 
+  // Check if in 7-day offer window
+  const isInOfferWindow = subscriptionData?.isInOfferWindow
+  const daysLeftInOffer = subscriptionData?.offerEndDate 
+    ? Math.ceil((new Date(subscriptionData.offerEndDate) - new Date()) / (1000 * 60 * 60 * 24))
+    : 0
+
   return (
+    <>
     <div className="restaurant-admin-container">
       <div className="restaurant-admin-content">
+        {/* Success Message Banner */}
+        {message && (
+          <div style={{
+            background: message.includes('success') || message.includes('Success') 
+              ? 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)' 
+              : 'linear-gradient(135deg, #f87171 0%, #ef4444 100%)',
+            color: 'white',
+            padding: '1rem 1.5rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'center',
+            fontSize: '1rem',
+            fontWeight: '600',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            animation: 'slideDown 0.3s ease-out'
+          }}>
+            {message}
+          </div>
+        )}
+
+        {/* 7-Day Offer Notification */}
+        {isInOfferWindow && daysLeftInOffer > 0 && (
+          <div className="offer-notification" style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+          }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>
+              🎉 Limited Time Offer: 20% Off Annual Plans!
+            </h3>
+            <p style={{ margin: '0 0 1rem 0' }}>
+              Only {daysLeftInOffer} {daysLeftInOffer === 1 ? 'day' : 'days'} left to get 20% off your annual subscription!
+            </p>
+            <button
+              onClick={() => navigate('/pricing')}
+              style={{
+                background: 'white',
+                color: '#667eea',
+                border: 'none',
+                padding: '0.75rem 2rem',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
+              onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+            >
+              View Plans & Save 20%
+            </button>
+          </div>
+        )}
+
+        {/* Subscription & Call Credits Status */}
+        {subscriptionData && (
+          <div className="subscription-status" style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '1.25rem',
+            borderRadius: '12px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <div style={{ color: '#ffffff', fontSize: '0.95rem' }}>
+              <strong style={{ color: '#ff6b6b', marginRight: '0.5rem' }}>Plan:</strong> 
+              <span style={{ color: '#ffffff' }}>
+                {subscriptionData.subscriptionPlan === 'trial' ? 'Free Trial' : subscriptionData.subscriptionPlan.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </span>
+              {subscriptionData.isInTrial && (
+                <span style={{ marginLeft: '0.5rem', color: '#ffd700' }}>
+                  (Trial ends: {new Date(subscriptionData.trialEndDate).toLocaleDateString()})
+                </span>
+              )}
+            </div>
+            <div style={{ color: '#ffffff', fontSize: '0.95rem' }}>
+              <strong style={{ color: '#ff6b6b', marginRight: '0.5rem' }}>Call Credits:</strong> 
+              <span style={{ color: '#ffffff' }}>
+                ${(subscriptionData.callCredits / 100).toFixed(2)} ({Math.floor(subscriptionData.callCredits / 50)} calls)
+              </span>
+            </div>
+            <div style={{ color: '#ffffff', fontSize: '0.95rem' }}>
+              <strong style={{ color: '#ff6b6b', marginRight: '0.5rem' }}>Campaigns This Month:</strong> 
+              <span style={{ color: '#ffffff' }}>
+                {subscriptionData.campaignsThisMonth} / {subscriptionData.limits?.isUnlimited ? 'Unlimited' : subscriptionData.limits?.campaignsPerMonth || 'N/A'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => navigate('/pricing')}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.transform = 'translateY(-2px)'
+                  e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.transform = 'translateY(0)'
+                  e.target.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)'
+                }}
+              >
+                View Plans
+              </button>
+              <button
+                onClick={() => {
+                  setShowCallCreditsModal(true)
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.background = 'rgba(255, 255, 255, 0.2)'
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = 'rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                Purchase Credits
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="admin-header">
           <h1 className="welcome-text">welcome {currentUser?.name || 'User'}!</h1>
           <div className="header-buttons">
@@ -251,7 +537,7 @@ function RestaurantAdmin() {
                 })}
               </div>
               <p className="caller-info-text">
-                Each caller can handle 4 codes per month. One campaign at a time per caller. 48-hour gap required between campaigns.
+                Each caller can handle one campaign at a time. 72-hour cooldown required between campaigns.
                 {callers.length === 0 && (
                   <span style={{ color: '#ff6b6b', display: 'block', marginTop: '10px' }}>
                     You need at least one caller to create codes. Click "Add Caller" above.
@@ -695,6 +981,125 @@ function RestaurantAdmin() {
         </div>
       </div>
     </div>
+
+    {/* Call Credits Purchase Modal - Outside container */}
+    {showCallCreditsModal && (
+      <div 
+        className="modal-overlay" 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          width: '100%',
+          height: '100%'
+        }} 
+        onClick={() => {
+          if (!processingPayment) {
+            setShowCallCreditsModal(false)
+            setCallCreditsAmount('')
+          }
+        }}
+      >
+        <div className="modal-content" style={{
+          background: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          maxWidth: '500px',
+          width: '90%',
+          zIndex: 10001,
+          position: 'relative',
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)'
+        }} onClick={(e) => {
+          e.stopPropagation()
+        }}>
+          <h2 style={{ marginTop: 0 }}>Purchase Call Credits</h2>
+          <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+            Call credits cost $0.50 per call. Enter the amount you'd like to purchase.
+          </p>
+          <form onSubmit={async (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            try {
+              await handlePurchaseCallCredits(e)
+            } catch (error) {
+              console.error('Form submission error:', error)
+            }
+          }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+                Amount ($)
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                value={callCreditsAmount}
+                onChange={(e) => setCallCreditsAmount(e.target.value)}
+                placeholder="Enter amount (e.g., 10.00)"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '1rem'
+                }}
+                disabled={processingPayment}
+                autoFocus
+                required
+              />
+              {callCreditsAmount && parseFloat(callCreditsAmount) > 0 && (
+                <p style={{ marginTop: '0.5rem', color: '#666', fontSize: '0.9rem' }}>
+                  You'll receive {Math.floor(parseFloat(callCreditsAmount) / 0.5)} call credits
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCallCreditsModal(false)
+                  setCallCreditsAmount('')
+                }}
+                disabled={processingPayment}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: '1px solid #ddd',
+                  background: 'white',
+                  borderRadius: '6px',
+                  cursor: processingPayment ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={processingPayment || !callCreditsAmount || parseFloat(callCreditsAmount) <= 0}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: processingPayment ? '#ccc' : '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: processingPayment || !callCreditsAmount || parseFloat(callCreditsAmount) <= 0 ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  opacity: processingPayment || !callCreditsAmount || parseFloat(callCreditsAmount) <= 0 ? 0.6 : 1
+                }}
+              >
+                {processingPayment ? 'Processing...' : 'Purchase'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

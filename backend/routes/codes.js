@@ -80,26 +80,36 @@ router.post('/', requireRestaurant, [
       return res.status(400).json({ message: 'Please complete onboarding first' })
     }
 
-    // Reset monthly codes if needed
+    // Reset monthly counters if needed
     user.resetMonthlyCodes()
+    user.resetMonthlyCampaigns()
     await user.save()
 
-    // Check for available caller
-    const codesPerCaller = 4
-    const totalCodesAllowed = user.callers.length * codesPerCaller
-    
-    if (user.codesThisMonth >= totalCodesAllowed) {
+    // Check call credits ($0.50 per call = 50 cents per call)
+    const callCost = peopleToCall * 50 // cost in cents
+    if (user.callCredits < callCost) {
+      const needed = ((callCost - user.callCredits) / 100).toFixed(2)
       return res.status(400).json({ 
-        message: `You have reached your monthly limit of ${totalCodesAllowed} codes` 
+        message: `Insufficient call credits. You need $${(callCost / 100).toFixed(2)} but only have $${(user.callCredits / 100).toFixed(2)}. Please purchase $${needed} more in call credits.` 
       })
+    }
+
+    // Check campaign limits based on plan
+    const limits = user.getPlanLimits()
+    if (!limits.isUnlimited && limits.campaignsPerMonth !== null) {
+      if (user.campaignsThisMonth >= limits.campaignsPerMonth) {
+        return res.status(400).json({ 
+          message: `You have reached your monthly campaign limit of ${limits.campaignsPerMonth} campaigns. Please upgrade your plan or wait until next month.` 
+        })
+      }
     }
 
     // Update all caller statuses based on all codes first (to ensure accurate status)
     const now = new Date()
     const allCodes = await Code.find({ restaurantId: user._id })
     
-    // TODO: TESTING MODE - Change back to 48 hours (48 * 60 * 60 * 1000) after testing
-    const COOLING_PERIOD_MS = 10 * 60 * 1000 // 10 minutes for testing (normally 48 hours = 48 * 60 * 60 * 1000)
+    // 72 hour cooldown period
+    const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
 
     // Process each caller to determine their correct status
     for (const caller of user.callers) {
@@ -208,10 +218,14 @@ router.post('/', requireRestaurant, [
 
     await newCode.save()
 
+    // Deduct call credits
+    user.callCredits -= callCost
+
     // Update caller status to active
     availableCaller.status = 'active'
     availableCaller.lastCampaignEnd = null // Clear any previous cooling period
     user.codesThisMonth += 1
+    user.campaignsThisMonth += 1
     await user.save()
 
     // Also update all caller statuses based on all codes (to ensure consistency)
@@ -249,7 +263,7 @@ router.post('/', requireRestaurant, [
           } else {
             // No codes, check if cooling period is over
             if (caller.status === 'cooling' && caller.lastCampaignEnd) {
-              const COOLING_PERIOD_MS = 10 * 60 * 1000 // 10 minutes for testing
+              const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
               const msSince = now - new Date(caller.lastCampaignEnd)
               if (msSince >= COOLING_PERIOD_MS) {
                 caller.status = 'available'

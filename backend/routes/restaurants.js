@@ -356,8 +356,8 @@ async function updateCallerStatusFromExpiredCodes(userId) {
     restaurantId: userId
   })
 
-  // TODO: TESTING MODE - Change back to 48 hours (48 * 60 * 60 * 1000) after testing
-  const COOLING_PERIOD_MS = 10 * 60 * 1000 // 10 minutes for testing (normally 48 hours = 48 * 60 * 60 * 1000)
+  // 72 hour cooldown period
+  const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
 
   // Process each caller
   for (const caller of user.callers) {

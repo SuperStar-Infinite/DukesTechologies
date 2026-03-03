@@ -216,4 +216,32 @@ export const dukesAPI = {
   }
 }
 
+// Stripe API
+export const stripeAPI = {
+  getPlans: async () => {
+    return apiRequest('/stripe/plans')
+  },
+
+  createCheckoutSession: async (planId, amount) => {
+    const body = typeof planId === 'string' && planId === 'call_credits' && amount
+      ? { type: 'call_credits', amount }
+      : { planId }
+    return apiRequest('/stripe/create-checkout-session', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    })
+  },
+
+  createPaymentIntent: async (amount) => {
+    return apiRequest('/stripe/create-payment-intent', {
+      method: 'POST',
+      body: JSON.stringify({ amount })
+    })
+  },
+
+  getSubscription: async () => {
+    return apiRequest('/stripe/subscription')
+  }
+}
+
 export { getToken, setToken, removeToken }
