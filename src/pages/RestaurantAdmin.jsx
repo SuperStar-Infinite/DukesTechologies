@@ -300,9 +300,14 @@ function RestaurantAdmin() {
   }
 
   // Check if in 67-day offer window (from account creation)
+  // Only show notification if user is still on trial (hasn't purchased a plan yet)
   const isInOfferWindow = subscriptionData?.isInOfferWindow
+  const hasPaidPlan = subscriptionData?.subscriptionPlan && 
+    subscriptionData.subscriptionPlan !== 'trial' && 
+    subscriptionData.subscriptionStatus !== 'trial'
+  // Calculate days left - updates dynamically each time component renders
   const daysLeftInOffer = subscriptionData?.offerEndDate 
-    ? Math.ceil((new Date(subscriptionData.offerEndDate) - new Date()) / (1000 * 60 * 60 * 24))
+    ? Math.max(0, Math.floor((new Date(subscriptionData.offerEndDate) - new Date()) / (1000 * 60 * 60 * 24)))
     : 0
 
   return (
@@ -329,8 +334,8 @@ function RestaurantAdmin() {
           </div>
         )}
 
-        {/* 67-Day Offer Notification */}
-        {isInOfferWindow && daysLeftInOffer > 0 && (
+        {/* 67-Day Offer Notification - Only show if user hasn't purchased a plan yet */}
+        {isInOfferWindow && daysLeftInOffer > 0 && !hasPaidPlan && (
           <div className="offer-notification" style={{
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
