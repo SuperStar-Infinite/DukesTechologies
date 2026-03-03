@@ -141,9 +141,11 @@ router.post('/', requireRestaurant, [
           new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
         )[0]
         
-        // If caller doesn't have lastCampaignEnd set, set it to when the most recent active code was created
-        if (!caller.lastCampaignEnd) {
-          caller.lastCampaignEnd = mostRecentActiveCode.createdAt || mostRecentActiveCode._id.getTimestamp()
+        // Set lastCampaignEnd to when the most recent active code was created
+        // Always use the most recent code's creation time (cooldown starts from code creation)
+        const codeCreatedAt = mostRecentActiveCode.createdAt || mostRecentActiveCode._id.getTimestamp()
+        if (!caller.lastCampaignEnd || new Date(codeCreatedAt) > new Date(caller.lastCampaignEnd)) {
+          caller.lastCampaignEnd = codeCreatedAt
         }
         
         // Check if cooldown period is over
@@ -161,14 +163,19 @@ router.post('/', requireRestaurant, [
       const expiredCodes = callerCodes.filter(code => new Date(code.expiresAt) <= now)
       if (expiredCodes.length > 0) {
         // Has expired code(s) - should be in cooling period
-        // Find the most recent expired code
+        // Find the most recent expired code (by creation date, not expiration)
         const mostRecentExpired = expiredCodes.sort((a, b) => 
-          new Date(b.expiresAt) - new Date(a.expiresAt)
+          new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
         )[0]
         
-        // Set to cooling with lastCampaignEnd = most recent expiration
+        // Cooldown starts when code is created, not when it expires
+        // Use createdAt, but don't override if lastCampaignEnd is already set and more recent
+        const codeCreatedAt = mostRecentExpired.createdAt || mostRecentExpired._id.getTimestamp()
+        if (!caller.lastCampaignEnd || new Date(codeCreatedAt) > new Date(caller.lastCampaignEnd)) {
+          caller.lastCampaignEnd = codeCreatedAt
+        }
+        
         caller.status = 'cooling'
-        caller.lastCampaignEnd = mostRecentExpired.expiresAt
         
         // Check if cooling period is over
         const msSince = now - new Date(caller.lastCampaignEnd)
@@ -265,17 +272,21 @@ router.post('/', requireRestaurant, [
             new Date(c.expiresAt) <= now
           )
           if (hasExpiredCode) {
-            // Find the most recent expired code for this caller
+            // Find the most recent expired code for this caller (by creation date)
             const expiredCodes = updatedAllCodes.filter(c => 
               c.callerId?.toString() === caller._id.toString() && 
               new Date(c.expiresAt) <= now
             )
             if (expiredCodes.length > 0) {
               const mostRecentExpired = expiredCodes.sort((a, b) => 
-                new Date(b.expiresAt) - new Date(a.expiresAt)
+                new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
               )[0]
+              // Cooldown starts when code is created, not when it expires
+              const codeCreatedAt = mostRecentExpired.createdAt || mostRecentExpired._id.getTimestamp()
+              if (!caller.lastCampaignEnd || new Date(codeCreatedAt) > new Date(caller.lastCampaignEnd)) {
+                caller.lastCampaignEnd = codeCreatedAt
+              }
               caller.status = 'cooling'
-              caller.lastCampaignEnd = mostRecentExpired.expiresAt
             }
           } else {
             // No codes, check if cooling period is over
@@ -302,9 +313,11 @@ router.post('/', requireRestaurant, [
               new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
             )[0]
             
-            // If caller doesn't have lastCampaignEnd set, set it to when the most recent code was created
-            if (!caller.lastCampaignEnd) {
-              caller.lastCampaignEnd = mostRecentCode.createdAt || mostRecentCode._id.getTimestamp()
+            // Set lastCampaignEnd to when the most recent code was created
+            // Always use the most recent code's creation time (cooldown starts from code creation)
+            const codeCreatedAt = mostRecentCode.createdAt || mostRecentCode._id.getTimestamp()
+            if (!caller.lastCampaignEnd || new Date(codeCreatedAt) > new Date(caller.lastCampaignEnd)) {
+              caller.lastCampaignEnd = codeCreatedAt
             }
             
             // Check if cooldown period is over
