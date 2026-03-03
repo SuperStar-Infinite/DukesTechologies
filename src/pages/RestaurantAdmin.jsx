@@ -295,7 +295,7 @@ function RestaurantAdmin() {
     )
   }
 
-  // Check if in 7-day offer window
+  // Check if in 67-day offer window (from account creation)
   const isInOfferWindow = subscriptionData?.isInOfferWindow
   const daysLeftInOffer = subscriptionData?.offerEndDate 
     ? Math.ceil((new Date(subscriptionData.offerEndDate) - new Date()) / (1000 * 60 * 60 * 24))
@@ -325,7 +325,7 @@ function RestaurantAdmin() {
           </div>
         )}
 
-        {/* 7-Day Offer Notification */}
+        {/* 67-Day Offer Notification */}
         {isInOfferWindow && daysLeftInOffer > 0 && (
           <div className="offer-notification" style={{
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -505,21 +505,6 @@ function RestaurantAdmin() {
                       <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
                     </svg>
                   </button>
-                  <button
-                    type="button"
-                    className="add-caller-btn"
-                    onClick={async () => {
-                      try {
-                        await restaurantAPI.addCaller()
-                        await fetchUserData()
-                        setMessage('Caller added successfully!')
-                      } catch (error) {
-                        setMessage(error.message || 'Failed to add caller')
-                      }
-                    }}
-                  >
-                    + Add Caller
-                  </button>
                 </div>
               </div>
               <div className="callers-grid">
@@ -538,11 +523,6 @@ function RestaurantAdmin() {
               </div>
               <p className="caller-info-text">
                 Each caller can handle one campaign at a time. 72-hour cooldown required between campaigns.
-                {callers.length === 0 && (
-                  <span style={{ color: '#ff6b6b', display: 'block', marginTop: '10px' }}>
-                    You need at least one caller to create codes. Click "Add Caller" above.
-                  </span>
-                )}
               </p>
             </div>
 

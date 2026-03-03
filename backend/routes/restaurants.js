@@ -85,9 +85,12 @@ router.post('/onboarding', [
       logoKey: loc.logoKey || null
     }))
     
-    // Initialize callers (default 1 caller)
+    // Initialize callers (default 2 callers for new users)
     if (user.callers.length === 0) {
-      user.callers = [{ status: 'available', lastCampaignEnd: null }]
+      user.callers = [
+        { status: 'available', lastCampaignEnd: null },
+        { status: 'available', lastCampaignEnd: null }
+      ]
     }
     
     user.onboarded = true
@@ -431,39 +434,6 @@ router.get('/profile', async (req, res) => {
   } catch (error) {
     console.error('Get profile error:', error)
     res.status(500).json({ message: 'Server error' })
-  }
-})
-
-// @route   POST /api/restaurants/callers
-// @desc    Add new caller
-// @access  Private (Restaurant)
-router.post('/callers', async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id)
-    
-    if (!user.onboarded) {
-      return res.status(400).json({ message: 'Please complete onboarding first' })
-    }
-
-    // Add new caller with available status
-    user.callers.push({
-      status: 'available',
-      lastCampaignEnd: null
-    })
-
-    await user.save()
-
-    res.json({
-      message: 'Caller added successfully',
-      caller: user.callers[user.callers.length - 1],
-      totalCallers: user.callers.length
-    })
-  } catch (error) {
-    console.error('Add caller error:', error)
-    res.status(500).json({ 
-      message: error.message || 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    })
   }
 })
 

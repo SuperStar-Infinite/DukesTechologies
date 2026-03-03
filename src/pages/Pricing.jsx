@@ -102,10 +102,23 @@ const PLANS_CONFIG = {
 function Pricing() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isInOfferWindow, setIsInOfferWindow] = useState(false)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
   useEffect(() => {
+    // Fetch subscription data to check offer window
+    const fetchSubscriptionData = async () => {
+      try {
+        const data = await stripeAPI.getSubscription()
+        setIsInOfferWindow(data.isInOfferWindow || false)
+      } catch (error) {
+        // User might not be logged in, that's okay
+        console.error('Error fetching subscription data:', error)
+      }
+    }
+    fetchSubscriptionData()
+
     // Check for success/cancel from Stripe
     if (searchParams.get('success') === 'true') {
       // Redirect to admin after successful payment
@@ -135,24 +148,36 @@ function Pricing() {
     }
   }
 
-  const groupedPlans = [
-    {
-      name: 'Starter',
-      plans: ['starter_monthly', 'starter_annual', 'starter_annual_discount']
-    },
-    {
-      name: 'Pro',
-      plans: ['pro_monthly', 'pro_annual', 'pro_annual_discount']
-    },
-    {
-      name: 'Advanced',
-      plans: ['advanced_monthly', 'advanced_annual', 'advanced_annual_discount']
-    },
-    {
-      name: 'Unlimited',
-      plans: ['unlimited_annual']
-    }
-  ]
+  // Filter discount plans based on offer window
+  const getGroupedPlans = () => {
+    const basePlans = [
+      {
+        name: 'Starter',
+        plans: isInOfferWindow 
+          ? ['starter_monthly', 'starter_annual', 'starter_annual_discount']
+          : ['starter_monthly', 'starter_annual']
+      },
+      {
+        name: 'Pro',
+        plans: isInOfferWindow
+          ? ['pro_monthly', 'pro_annual', 'pro_annual_discount']
+          : ['pro_monthly', 'pro_annual']
+      },
+      {
+        name: 'Advanced',
+        plans: isInOfferWindow
+          ? ['advanced_monthly', 'advanced_annual', 'advanced_annual_discount']
+          : ['advanced_monthly', 'advanced_annual']
+      },
+      {
+        name: 'Unlimited',
+        plans: ['unlimited_annual']
+      }
+    ]
+    return basePlans
+  }
+
+  const groupedPlans = getGroupedPlans()
 
   return (
     <div className="pricing-container">
@@ -240,10 +265,10 @@ function Pricing() {
 
       <div className="pricing-footer">
         <p>
-          <strong>60-Day Free Trial:</strong> New customers get 60 days to run unlimited campaigns with 1 caller.
+          <strong>60-Day Free Trial:</strong> New customers get 60 days to run unlimited campaigns with 2 callers and 200 free calls.
         </p>
         <p>
-          <strong>7-Day Special Offer:</strong> After your trial, get 20% off annual plans for 7 days!
+          <strong>67-Day Special Offer:</strong> Get 20% off annual plans for 67 days from account creation!
         </p>
       </div>
     </div>

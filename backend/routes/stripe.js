@@ -325,11 +325,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
               }
             }
 
-            // Set offer end date if coming from trial (7 days after trial ends)
-            if (user.subscriptionPlan === 'trial' || user.subscriptionStatus === 'trial') {
-              const trialEnd = new Date(user.trialEndDate)
-              user.offerEndDate = new Date(trialEnd.getTime() + 7 * 24 * 60 * 60 * 1000)
-            }
+            // Offer end date is set in User model default (67 days from account creation)
+            // No need to override it here
 
             await user.save()
           }

@@ -116,12 +116,17 @@ const userSchema = new mongoose.Schema({
   },
   offerEndDate: {
     type: Date,
-    default: null // 7 days after trial ends for 20% off annual
+    default: function() {
+      // 67 days from account creation for 20% off annual plans
+      const now = new Date()
+      return new Date(now.getTime() + 67 * 24 * 60 * 60 * 1000)
+    }
   },
   // Call credits (in cents, $0.50 per call = 50 cents)
+  // New users get 200 free calls = 200 * 50 cents = 10000 cents = $100
   callCredits: {
     type: Number,
-    default: 0,
+    default: 10000, // 200 calls worth of credits
     min: 0
   },
   campaignsThisMonth: {
@@ -150,6 +155,25 @@ userSchema.pre('save', async function(next) {
   } catch (error) {
     next(error)
   }
+})
+
+// Initialize default values for new restaurant users
+userSchema.pre('save', async function(next) {
+  // Only for new restaurant users
+  if (this.isNew && this.type === 'restaurant') {
+    // Initialize 2 callers for new restaurant users
+    if (!this.callers || this.callers.length === 0) {
+      this.callers = [
+        { status: 'available', lastCampaignEnd: null },
+        { status: 'available', lastCampaignEnd: null }
+      ]
+    }
+    // Ensure callCredits is set to default (200 free calls = 10000 cents)
+    if (this.callCredits === undefined || this.callCredits === null) {
+      this.callCredits = 10000
+    }
+  }
+  next()
 })
 
 // Compare password method
@@ -190,7 +214,7 @@ userSchema.methods.getPlanLimits = function() {
   }
 
   if (this.subscriptionStatus === 'trial' || this.subscriptionPlan === 'trial') {
-    limits.callers = 1
+    limits.callers = 2 // Trial users get 2 free callers
     limits.campaignsPerMonth = null // unlimited during trial
     limits.isUnlimited = true
     return limits
@@ -247,7 +271,7 @@ userSchema.methods.isInTrial = function() {
   return now < this.trialEndDate
 }
 
-// Check if user is in 7-day offer window
+// Check if user is in 67-day offer window (for 20% off annual plans)
 userSchema.methods.isInOfferWindow = function() {
   if (!this.offerEndDate) return false
   const now = new Date()

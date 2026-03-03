@@ -167,12 +167,6 @@ export const restaurantAPI = {
     })
   },
 
-  addCaller: async () => {
-    return apiRequest('/restaurants/callers', {
-      method: 'POST'
-    })
-  },
-
   testResetCaller: async (callerId, hoursAgo) => {
     return apiRequest(`/restaurants/callers/${callerId}/test-reset`, {
       method: 'POST',
