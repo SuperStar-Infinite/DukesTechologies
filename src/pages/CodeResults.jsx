@@ -182,6 +182,15 @@ function CodeResults() {
                 >
                   {restaurant.displayName || restaurant.name}
                 </a>
+                <p style={{ 
+                  fontSize: '0.85rem', 
+                  color: 'rgba(255, 255, 255, 0.7)', 
+                  marginTop: '0.5rem',
+                  marginBottom: '0',
+                  textAlign: 'center'
+                }}>
+                  Click link above to book reservation
+                </p>
               </div>
             ))
           ) : (
