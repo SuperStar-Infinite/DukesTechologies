@@ -359,8 +359,8 @@ async function updateCallerStatusFromExpiredCodes(userId) {
     restaurantId: userId
   })
 
-  // 72 hour cooldown period
-  const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
+  // 48 hour cooldown period
+  const COOLING_PERIOD_MS = 48 * 60 * 60 * 1000 // 48 hours
 
   // Process each caller
   for (const caller of user.callers) {
@@ -386,9 +386,25 @@ async function updateCallerStatusFromExpiredCodes(userId) {
     // Check for active codes (not expired)
     const activeCodes = callerCodes.filter(code => new Date(code.expiresAt) > now)
     if (activeCodes.length > 0) {
-      // Has active code(s) - set to active
-      caller.status = 'active'
-      caller.lastCampaignEnd = null
+      // Has active code(s) - caller should be in cooldown (cooldown starts when code is created)
+      // Find the most recent active code to determine cooldown start
+      const mostRecentActiveCode = activeCodes.sort((a, b) => 
+        new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
+      )[0]
+      
+      // If caller doesn't have lastCampaignEnd set, set it to when the most recent active code was created
+      if (!caller.lastCampaignEnd) {
+        caller.lastCampaignEnd = mostRecentActiveCode.createdAt || mostRecentActiveCode._id.getTimestamp()
+      }
+      
+      // Check if cooldown period is over
+      const msSince = now - new Date(caller.lastCampaignEnd)
+      if (msSince >= COOLING_PERIOD_MS) {
+        caller.status = 'available'
+        caller.lastCampaignEnd = null
+      } else {
+        caller.status = 'cooling'
+      }
       continue
     }
 

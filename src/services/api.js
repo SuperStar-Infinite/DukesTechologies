@@ -90,6 +90,20 @@ export const authAPI = {
     return data
   },
 
+  register: async (email, password, name, type = 'restaurant') => {
+    const data = await apiRequest('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name, type })
+    })
+    
+    if (data.token) {
+      setToken(data.token)
+      sessionStorage.setItem('currentUser', JSON.stringify(data.user))
+    }
+    
+    return data
+  },
+
   getCurrentUser: async () => {
     return apiRequest('/auth/me')
   },

@@ -48,30 +48,15 @@ function Signup() {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          type: 'restaurant'
-        })
-      })
+      const data = await authAPI.register(
+        formData.email,
+        formData.password,
+        formData.name,
+        'restaurant'
+      )
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed')
-      }
-
-      // Auto-login after signup
+      // Auto-login after signup (token is already set by authAPI.register)
       if (data.token) {
-        sessionStorage.setItem('token', data.token)
-        sessionStorage.setItem('currentUser', JSON.stringify(data.user))
-        
         // Redirect to onboarding
         navigate('/restaurant/onboarding')
       }

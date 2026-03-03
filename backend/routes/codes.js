@@ -108,8 +108,8 @@ router.post('/', requireRestaurant, [
     const now = new Date()
     const allCodes = await Code.find({ restaurantId: user._id })
     
-    // 72 hour cooldown period
-    const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
+    // 48 hour cooldown period
+    const COOLING_PERIOD_MS = 48 * 60 * 60 * 1000 // 48 hours
 
     // Process each caller to determine their correct status
     for (const caller of user.callers) {
@@ -135,9 +135,25 @@ router.post('/', requireRestaurant, [
       // Check for active codes (not expired)
       const activeCodes = callerCodes.filter(code => new Date(code.expiresAt) > now)
       if (activeCodes.length > 0) {
-        // Has active code(s) - set to active
-        caller.status = 'active'
-        caller.lastCampaignEnd = null
+        // Has active code(s) - caller should be in cooldown (cooldown starts when code is created)
+        // Find the most recent active code to determine cooldown start
+        const mostRecentActiveCode = activeCodes.sort((a, b) => 
+          new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
+        )[0]
+        
+        // If caller doesn't have lastCampaignEnd set, set it to when the most recent active code was created
+        if (!caller.lastCampaignEnd) {
+          caller.lastCampaignEnd = mostRecentActiveCode.createdAt || mostRecentActiveCode._id.getTimestamp()
+        }
+        
+        // Check if cooldown period is over
+        const msSince = now - new Date(caller.lastCampaignEnd)
+        if (msSince >= COOLING_PERIOD_MS) {
+          caller.status = 'available'
+          caller.lastCampaignEnd = null
+        } else {
+          caller.status = 'cooling'
+        }
         continue
       }
 
@@ -221,9 +237,10 @@ router.post('/', requireRestaurant, [
     // Deduct call credits
     user.callCredits -= callCost
 
-    // Update caller status to active
-    availableCaller.status = 'active'
-    availableCaller.lastCampaignEnd = null // Clear any previous cooling period
+    // Update caller status to cooling immediately (cooldown starts when code is created)
+    const nowForCooldown = new Date()
+    availableCaller.status = 'cooling'
+    availableCaller.lastCampaignEnd = nowForCooldown // Start cooldown immediately
     user.codesThisMonth += 1
     user.campaignsThisMonth += 1
     await user.save()
@@ -263,7 +280,7 @@ router.post('/', requireRestaurant, [
           } else {
             // No codes, check if cooling period is over
             if (caller.status === 'cooling' && caller.lastCampaignEnd) {
-              const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
+              const COOLING_PERIOD_MS = 48 * 60 * 60 * 1000 // 48 hours
               const msSince = now - new Date(caller.lastCampaignEnd)
               if (msSince >= COOLING_PERIOD_MS) {
                 caller.status = 'available'
@@ -274,8 +291,32 @@ router.post('/', requireRestaurant, [
             }
           }
         } else {
-          // Has active code, set to active
-          caller.status = 'active'
+          // Has active code, caller should be in cooldown (cooldown starts when code is created)
+          // Find the most recent code for this caller
+          const callerActiveCodes = updatedAllCodes.filter(c => 
+            c.callerId?.toString() === caller._id.toString() && 
+            new Date(c.expiresAt) > now
+          )
+          if (callerActiveCodes.length > 0) {
+            const mostRecentCode = callerActiveCodes.sort((a, b) => 
+              new Date(b.createdAt || b._id.getTimestamp()) - new Date(a.createdAt || a._id.getTimestamp())
+            )[0]
+            
+            // If caller doesn't have lastCampaignEnd set, set it to when the most recent code was created
+            if (!caller.lastCampaignEnd) {
+              caller.lastCampaignEnd = mostRecentCode.createdAt || mostRecentCode._id.getTimestamp()
+            }
+            
+            // Check if cooldown period is over
+            const COOLING_PERIOD_MS = 48 * 60 * 60 * 1000 // 48 hours
+            const msSince = now - new Date(caller.lastCampaignEnd)
+            if (msSince >= COOLING_PERIOD_MS) {
+              caller.status = 'available'
+              caller.lastCampaignEnd = null
+            } else {
+              caller.status = 'cooling'
+            }
+          }
         }
       }
     }

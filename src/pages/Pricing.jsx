@@ -183,7 +183,7 @@ function Pricing() {
     <div className="pricing-container">
       <div className="pricing-header">
         <h1>Choose Your Plan</h1>
-        <p>All plans include call credits at $0.50 per call</p>
+        <p>All plans do not include call credits. Call credits can be purchased separately.</p>
       </div>
 
       {error && <div className="pricing-error">{error}</div>}

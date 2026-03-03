@@ -198,19 +198,23 @@ function RestaurantAdmin() {
   }
 
   // Calculate caller status
-  // 72 hour cooldown period
-  const COOLING_PERIOD_MS = 72 * 60 * 60 * 1000 // 72 hours
+  // 48 hour cooldown period
+  const COOLING_PERIOD_MS = 48 * 60 * 60 * 1000 // 48 hours
   const getCallerStatus = (caller) => {
-    if (caller.status === 'active') return { status: 'active', label: 'Active', color: '#ff0000' }
-    if (caller.status === 'cooling') {
+    // Never show 'active' status - callers are either available or in cooldown
+    if (caller.status === 'cooling' || caller.status === 'active') {
+      if (!caller.lastCampaignEnd) {
+        // If status is active/cooling but no lastCampaignEnd, treat as available
+        return { status: 'available', label: 'Available', color: '#00ff00' }
+      }
       const lastEnd = new Date(caller.lastCampaignEnd)
       const now = new Date()
       const msSince = now - lastEnd
       if (msSince >= COOLING_PERIOD_MS) {
         return { status: 'available', label: 'Available', color: '#00ff00' }
       }
-      const minutesLeft = Math.ceil((COOLING_PERIOD_MS - msSince) / (1000 * 60))
-      return { status: 'cooling', label: `Cooling Down (${minutesLeft}m left)`, color: '#ffff00' }
+      const hoursLeft = Math.ceil((COOLING_PERIOD_MS - msSince) / (1000 * 60 * 60))
+      return { status: 'cooling', label: `Cooling Down (${hoursLeft}h left)`, color: '#ffff00' }
     }
     return { status: 'available', label: 'Available', color: '#00ff00' }
   }
@@ -522,7 +526,7 @@ function RestaurantAdmin() {
                 })}
               </div>
               <p className="caller-info-text">
-                Each caller can handle one campaign at a time. 72-hour cooldown required between campaigns.
+                Each caller can handle one campaign at a time. 48-hour cooldown required between campaigns.
               </p>
             </div>
 
