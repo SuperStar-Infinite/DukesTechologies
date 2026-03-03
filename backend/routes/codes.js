@@ -85,6 +85,15 @@ router.post('/', requireRestaurant, [
     user.resetMonthlyCampaigns()
     await user.save()
 
+    // Check people on list limit (if set by Dukes admin)
+    if (user.peopleOnList !== null && user.peopleOnList !== undefined) {
+      if (peopleToCall > user.peopleOnList) {
+        return res.status(400).json({ 
+          message: `You can only call ${user.peopleOnList} people on your list, but you requested to call ${peopleToCall} people. Please reduce the number of people to call.` 
+        })
+      }
+    }
+
     // Check call credits ($0.50 per call = 50 cents per call)
     const callCost = peopleToCall * 50 // cost in cents
     if (user.callCredits < callCost) {
@@ -220,11 +229,16 @@ router.post('/', requireRestaurant, [
         break
     }
 
-    // Generate unique code
+    // Generate unique code (excluding 0, O, and I to avoid confusion)
+    // Allowed characters: A-H, J-N, P-Z, 1-9 (no 0, O, or I)
+    const allowedChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ123456789'
     let code
     let codeExists = true
     while (codeExists) {
-      code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      code = ''
+      for (let i = 0; i < 6; i++) {
+        code += allowedChars.charAt(Math.floor(Math.random() * allowedChars.length))
+      }
       codeExists = await Code.findOne({ code })
     }
 

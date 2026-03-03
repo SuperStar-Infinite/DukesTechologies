@@ -81,4 +81,38 @@ router.get('/codes', async (req, res) => {
   }
 })
 
+// @route   PUT /api/dukes/restaurants/:id/people-on-list
+// @desc    Update people on list for a restaurant
+// @access  Private (Dukes)
+router.put('/restaurants/:id/people-on-list', async (req, res) => {
+  try {
+    const { peopleOnList } = req.body
+
+    if (peopleOnList !== undefined && (typeof peopleOnList !== 'number' || peopleOnList < 0)) {
+      return res.status(400).json({ message: 'peopleOnList must be a non-negative number or null' })
+    }
+
+    const restaurant = await User.findById(req.params.id)
+    
+    if (!restaurant || restaurant.type !== 'restaurant') {
+      return res.status(404).json({ message: 'Restaurant not found' })
+    }
+
+    restaurant.peopleOnList = peopleOnList === null || peopleOnList === '' ? null : peopleOnList
+    await restaurant.save()
+
+    res.json({
+      message: 'People on list updated successfully',
+      restaurant: {
+        id: restaurant._id,
+        restaurantName: restaurant.restaurantName,
+        peopleOnList: restaurant.peopleOnList
+      }
+    })
+  } catch (error) {
+    console.error('Update people on list error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 export default router

@@ -490,6 +490,24 @@ function RestaurantAdmin() {
 
         {activeTab === 'create' && (
           <form onSubmit={handleSubmit} className="create-form">
+            {/* People on List Display */}
+            {userData.peopleOnList !== null && userData.peopleOnList !== undefined && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  padding: '1rem 1.5rem',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                }}>
+                  {userData.peopleOnList} {userData.peopleOnList === 1 ? 'person' : 'people'} you can call!
+                </div>
+              </div>
+            )}
+
             {/* Caller Dashboard */}
             <div className="caller-dashboard">
               <div className="caller-dashboard-header">

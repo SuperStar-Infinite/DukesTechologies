@@ -9,6 +9,8 @@ function DukesAdmin() {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const [restaurantCodes, setRestaurantCodes] = useState({})
   const [loading, setLoading] = useState(true)
+  const [editingPeopleOnList, setEditingPeopleOnList] = useState({})
+  const [peopleOnListInput, setPeopleOnListInput] = useState({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -151,6 +153,118 @@ function DukesAdmin() {
 
                   {selectedRestaurant?._id === restaurant._id && (
                     <div className="restaurant-details">
+                      <div className="people-on-list-section" style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px' }}>
+                        <h4 style={{ marginBottom: '0.5rem' }}>People on List</h4>
+                        {editingPeopleOnList[restaurant._id] ? (
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <input
+                              type="number"
+                              min="0"
+                              value={peopleOnListInput[restaurant._id] ?? (restaurant.peopleOnList ?? '')}
+                              onChange={(e) => setPeopleOnListInput(prev => ({
+                                ...prev,
+                                [restaurant._id]: e.target.value === '' ? '' : parseInt(e.target.value) || 0
+                              }))}
+                              placeholder="Enter number of people"
+                              style={{
+                                padding: '0.5rem',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                color: 'white',
+                                width: '150px'
+                              }}
+                            />
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const value = peopleOnListInput[restaurant._id]
+                                  await dukesAPI.updatePeopleOnList(
+                                    restaurant._id,
+                                    value === '' || value === null ? null : value
+                                  )
+                                  await refreshData()
+                                  setEditingPeopleOnList(prev => {
+                                    const newState = { ...prev }
+                                    delete newState[restaurant._id]
+                                    return newState
+                                  })
+                                  setPeopleOnListInput(prev => {
+                                    const newState = { ...prev }
+                                    delete newState[restaurant._id]
+                                    return newState
+                                  })
+                                } catch (error) {
+                                  alert(error.message || 'Failed to update people on list')
+                                }
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                background: '#4ade80',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingPeopleOnList(prev => {
+                                  const newState = { ...prev }
+                                  delete newState[restaurant._id]
+                                  return newState
+                                })
+                                setPeopleOnListInput(prev => {
+                                  const newState = { ...prev }
+                                  delete newState[restaurant._id]
+                                  return newState
+                                })
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                background: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>
+                              {restaurant.peopleOnList !== null && restaurant.peopleOnList !== undefined
+                                ? `${restaurant.peopleOnList} ${restaurant.peopleOnList === 1 ? 'person' : 'people'}`
+                                : 'Not set (unlimited)'}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingPeopleOnList(prev => ({ ...prev, [restaurant._id]: true }))
+                                setPeopleOnListInput(prev => ({
+                                  ...prev,
+                                  [restaurant._id]: restaurant.peopleOnList ?? ''
+                                }))
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                background: '#667eea',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="locations-section">
                         <h4>Locations</h4>
                         <div className="locations-list">

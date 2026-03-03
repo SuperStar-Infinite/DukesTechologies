@@ -221,6 +221,13 @@ export const dukesAPI = {
 
   getAllCodes: async () => {
     return apiRequest('/dukes/codes')
+  },
+
+  updatePeopleOnList: async (restaurantId, peopleOnList) => {
+    return apiRequest(`/dukes/restaurants/${restaurantId}/people-on-list`, {
+      method: 'PUT',
+      body: JSON.stringify({ peopleOnList })
+    })
   }
 }
 

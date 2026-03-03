@@ -139,6 +139,12 @@ const userSchema = new mongoose.Schema({
       const now = new Date()
       return new Date(now.getFullYear(), now.getMonth() + 1, 1)
     }
+  },
+  // Number of people on the restaurant's call list (set by Dukes admin)
+  peopleOnList: {
+    type: Number,
+    default: null, // null means unlimited/not set
+    min: 0
   }
 }, {
   timestamps: true
