@@ -41,15 +41,48 @@ const apiRequest = async (endpoint, options = {}) => {
     // Read response as text first (can only read once)
     const text = await response.text()
     
+    // Check if response is HTML (error page)
+    const isHTML = text.trim().startsWith('<!') || text.trim().startsWith('<html') || text.includes('<TITLE>') || text.includes('<H1>')
+    
     let data
     // Try to parse as JSON
     try {
       data = text ? JSON.parse(text) : {}
     } catch (e) {
-      // Not JSON, create error with text
+      // Not JSON - handle HTML error pages or plain text
       if (!response.ok) {
-        const error = new Error(text || 'API request failed')
-        error.response = { status: response.status, data: { message: text } }
+        let errorMessage = 'API request failed'
+        
+        if (isHTML) {
+          // Extract error message from HTML error pages
+          const titleMatch = text.match(/<TITLE>(.*?)<\/TITLE>/i) || text.match(/<H1>(.*?)<\/H1>/i)
+          if (titleMatch) {
+            errorMessage = titleMatch[1].trim()
+          }
+          
+          // Provide user-friendly messages for common HTTP errors
+          if (response.status === 502) {
+            errorMessage = 'Server is temporarily unavailable. Please try again in a moment.'
+          } else if (response.status === 503) {
+            errorMessage = 'Service is temporarily unavailable. Please try again later.'
+          } else if (response.status === 504) {
+            errorMessage = 'Request timed out. Please try again.'
+          } else if (response.status === 500) {
+            errorMessage = 'Server error. Please try again or contact support.'
+          } else if (response.status === 404) {
+            errorMessage = 'Service not found. Please check your connection.'
+          } else if (response.status === 0 || !response.status) {
+            errorMessage = 'Unable to connect to server. Please check your internet connection.'
+          } else {
+            errorMessage = `Server error (${response.status}). Please try again.`
+          }
+        } else {
+          // Plain text error
+          errorMessage = text || 'API request failed'
+        }
+        
+        const error = new Error(errorMessage)
+        error.response = { status: response.status, data: { message: errorMessage } }
         throw error
       }
       // If OK but not JSON, return text as message
@@ -59,15 +92,24 @@ const apiRequest = async (endpoint, options = {}) => {
     if (!response.ok) {
       const error = new Error(data.message || data.error || 'API request failed')
       error.response = { data, status: response.status }
+      // Include password strength info if available
+      if (data.passwordStrength) {
+        error.passwordStrength = data.passwordStrength
+      }
       throw error
     }
 
     return data
   } catch (error) {
     console.error('API Error:', error)
-    // If it's already our error object, throw it as is
-    if (error.response) {
+    // If it's already our formatted error, re-throw it
+    if (error.response || (error.message && !error.message.includes('fetch'))) {
       throw error
+    }
+    
+    // Network/connection errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to server. Please check your internet connection.')
     }
     // Otherwise wrap it
     throw new Error(error.message || 'Network error')

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
 import { sendPasswordResetEmail } from '../utils/email.js'
+import { validatePasswordStrength } from '../utils/passwordValidator.js'
 
 const router = express.Router()
 
@@ -66,7 +67,7 @@ router.post('/login', [
 // @access  Public
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('name').notEmpty().trim(),
   body('type').isIn(['restaurant', 'dukes']).optional()
 ], async (req, res) => {
@@ -77,6 +78,15 @@ router.post('/register', [
     }
 
     const { email, password, name, type } = req.body
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password)
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        message: 'Password does not meet strength requirements',
+        passwordStrength: passwordValidation
+      })
+    }
 
     // Check if user exists
     const existingUser = await User.findOne({ email: email.toLowerCase() })
@@ -207,7 +217,7 @@ router.post('/forgot-password', [
 // @access  Public
 router.post('/reset-password', [
   body('token').notEmpty(),
-  body('password').isLength({ min: 6 })
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req)
@@ -216,6 +226,15 @@ router.post('/reset-password', [
     }
 
     const { token, password } = req.body
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password)
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        message: 'Password does not meet strength requirements',
+        passwordStrength: passwordValidation
+      })
+    }
 
     // Verify token
     let decoded

@@ -29,7 +29,10 @@ function Login() {
         }
       }
     } catch (err) {
-      setError(err.message || 'Invalid email or password')
+      // Display user-friendly error message
+      const errorMessage = err.message || 'Invalid email or password'
+      setError(errorMessage)
+      console.error('Login error:', err)
     } finally {
       setLoading(false)
     }
