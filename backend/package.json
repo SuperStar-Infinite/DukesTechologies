@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "seed": "node scripts/seed.js",
     "check-env": "node scripts/check-env.js",
-    "change-password": "node scripts/change-password.js"
+    "change-password": "node scripts/change-password.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "keywords": [
     "relay",
