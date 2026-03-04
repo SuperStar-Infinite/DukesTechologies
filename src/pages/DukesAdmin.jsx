@@ -11,6 +11,9 @@ function DukesAdmin() {
   const [loading, setLoading] = useState(true)
   const [editingPeopleOnList, setEditingPeopleOnList] = useState({})
   const [peopleOnListInput, setPeopleOnListInput] = useState({})
+  const [allCodes, setAllCodes] = useState([])
+  const [showAllCodes, setShowAllCodes] = useState(false)
+  const [codeFilter, setCodeFilter] = useState({ hoursAgo: '', expiredOnly: '', restaurantId: '' })
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,6 +88,176 @@ function DukesAdmin() {
         <div className="dukes-header">
           <h1 className="dukes-title">DUKES ADMIN DASHBOARD</h1>
           <p className="powered-by">POWERED BY DUKES TECHNOLOGIES</p>
+        </div>
+
+        {/* All Codes Section with Filters */}
+        <div className="codes-section-global" style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ color: 'white', margin: 0 }}>All Codes</h2>
+            <button
+              type="button"
+              onClick={() => setShowAllCodes(!showAllCodes)}
+              style={{
+                padding: '0.5rem 1rem',
+                background: showAllCodes ? '#ef4444' : '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {showAllCodes ? 'Hide Codes' : 'Show All Codes'}
+            </button>
+          </div>
+          
+          {showAllCodes && (
+            <div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <input
+                  type="number"
+                  placeholder="Hours ago (e.g., 24, 48)"
+                  value={codeFilter.hoursAgo}
+                  onChange={(e) => setCodeFilter(prev => ({ ...prev, hoursAgo: e.target.value }))}
+                  style={{
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: '#2a2a2a',
+                    color: 'white',
+                    width: '150px'
+                  }}
+                />
+                <select
+                  value={codeFilter.expiredOnly}
+                  onChange={(e) => setCodeFilter(prev => ({ ...prev, expiredOnly: e.target.value }))}
+                  style={{
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: '#2a2a2a',
+                    color: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="" style={{ background: '#2a2a2a', color: 'white' }}>All Codes</option>
+                  <option value="true" style={{ background: '#2a2a2a', color: 'white' }}>Expired Only</option>
+                  <option value="false" style={{ background: '#2a2a2a', color: 'white' }}>Active Only</option>
+                </select>
+                <select
+                  value={codeFilter.restaurantId}
+                  onChange={(e) => setCodeFilter(prev => ({ ...prev, restaurantId: e.target.value }))}
+                  style={{
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: '#2a2a2a',
+                    color: 'white',
+                    minWidth: '200px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="" style={{ background: '#2a2a2a', color: 'white' }}>All Restaurants</option>
+                  {restaurants.map(r => (
+                    <option key={r._id} value={r._id} style={{ background: '#2a2a2a', color: 'white' }}>{r.restaurantName}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const { codes } = await dukesAPI.getAllCodes(
+                        codeFilter.hoursAgo || null,
+                        codeFilter.expiredOnly || null,
+                        codeFilter.restaurantId || null
+                      )
+                      setAllCodes(codes || [])
+                    } catch (error) {
+                      console.error('Error fetching codes:', error)
+                    }
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Filter
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (window.confirm('Delete all expired codes (expired more than 60 days ago)? This cannot be undone.')) {
+                      try {
+                        const result = await dukesAPI.deleteExpiredCodes()
+                        alert(`Deleted ${result.deletedCount} expired code(s)`)
+                        // Refresh codes
+                        const { codes } = await dukesAPI.getAllCodes(
+                          codeFilter.hoursAgo || null,
+                          codeFilter.expiredOnly || null,
+                          codeFilter.restaurantId || null
+                        )
+                        setAllCodes(codes || [])
+                      } catch (error) {
+                        alert(error.message || 'Failed to delete expired codes')
+                      }
+                    }
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Delete Expired (60+ days)
+                </button>
+              </div>
+              
+              <div className="codes-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {allCodes.length === 0 ? (
+                  <p className="no-data">No codes found. Click "Filter" to load codes.</p>
+                ) : (
+                  allCodes.map((code, index) => {
+                    const isExpired = new Date() > new Date(code.expiresAt)
+                    const createdAt = new Date(code.createdAt || code._id.getTimestamp())
+                    const hoursAgo = Math.floor((new Date() - createdAt) / (1000 * 60 * 60))
+                    return (
+                      <div key={index} className="code-item" style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '4px' }}>
+                        <div className="code-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <strong style={{ color: 'white' }}>{code.code}</strong>
+                            <span style={{ marginLeft: '1rem', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
+                              {code.restaurantId?.restaurantName || 'Unknown Restaurant'}
+                            </span>
+                            <span style={{ marginLeft: '1rem', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.85rem' }}>
+                              Created {hoursAgo}h ago
+                            </span>
+                          </div>
+                          <span className={`status-badge ${isExpired ? 'expired' : 'active'}`}>
+                            {isExpired ? 'Expired' : 'Active'}
+                          </span>
+                        </div>
+                        <p className="code-description" style={{ color: 'rgba(255, 255, 255, 0.8)', margin: '0.5rem 0' }}>
+                          {code.discountDescription}
+                        </p>
+                        <div className="code-stats" style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.7)' }}>
+                          <span>People: {code.peopleToCall || 0}</span>
+                          <span>Submissions: {code.submissions || 0}</span>
+                          <span>Revenue: ${(code.totalRevenue || 0).toFixed(2)}</span>
+                          <span>Expires: {new Date(code.expiresAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="restaurants-section">

@@ -110,6 +110,20 @@ export const authAPI = {
 
   logout: () => {
     removeToken()
+  },
+
+  forgotPassword: async (email) => {
+    return apiRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    })
+  },
+
+  resetPassword: async (token, password) => {
+    return apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password })
+    })
   }
 }
 
@@ -122,12 +136,28 @@ export const codeAPI = {
     })
   },
 
-  getAll: async () => {
-    return apiRequest('/codes')
+  getAll: async (hoursAgo, expiredOnly) => {
+    const params = new URLSearchParams()
+    if (hoursAgo) params.append('hoursAgo', hoursAgo)
+    if (expiredOnly !== undefined) params.append('expiredOnly', expiredOnly)
+    const queryString = params.toString()
+    return apiRequest(`/codes${queryString ? '?' + queryString : ''}`)
   },
 
   getByCode: async (code) => {
     return apiRequest(`/codes/${code}`)
+  },
+
+  deleteExpired: async () => {
+    return apiRequest('/codes/expired', {
+      method: 'DELETE'
+    })
+  },
+
+  delete: async (codeId) => {
+    return apiRequest(`/codes/${codeId}`, {
+      method: 'DELETE'
+    })
   }
 }
 
@@ -219,8 +249,19 @@ export const dukesAPI = {
     return apiRequest(`/dukes/restaurants/${restaurantId}/codes`)
   },
 
-  getAllCodes: async () => {
-    return apiRequest('/dukes/codes')
+  getAllCodes: async (hoursAgo, expiredOnly, restaurantId) => {
+    const params = new URLSearchParams()
+    if (hoursAgo) params.append('hoursAgo', hoursAgo)
+    if (expiredOnly !== undefined) params.append('expiredOnly', expiredOnly)
+    if (restaurantId) params.append('restaurantId', restaurantId)
+    const queryString = params.toString()
+    return apiRequest(`/dukes/codes${queryString ? '?' + queryString : ''}`)
+  },
+
+  deleteExpiredCodes: async () => {
+    return apiRequest('/dukes/codes/expired', {
+      method: 'DELETE'
+    })
   },
 
   updatePeopleOnList: async (restaurantId, peopleOnList) => {

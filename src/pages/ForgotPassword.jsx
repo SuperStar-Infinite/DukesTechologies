@@ -3,33 +3,29 @@ import { useNavigate, Link } from 'react-router-dom'
 import { authAPI } from '../services/api'
 import '../styles/Login.css'
 
-function Login() {
+function ForgotPassword() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
     setLoading(true)
 
     try {
-      const data = await authAPI.login(email, password)
+      const data = await authAPI.forgotPassword(email)
+      setSuccess(data.message || 'If an account exists with that email, a password reset link has been sent.')
       
-      // Route based on user type
-      if (data.user.type === 'dukes') {
-        navigate('/dukes/admin')
-      } else if (data.user.type === 'restaurant') {
-        if (data.user.onboarded) {
-          navigate('/restaurant/admin')
-        } else {
-          navigate('/restaurant/onboarding')
-        }
+      // In development, show the reset code/token
+      if (data.resetCode && data.resetToken) {
+        setSuccess(`${data.message}\n\nDevelopment Mode:\nReset Code: ${data.resetCode}\nOr use this link: ${window.location.origin}/reset-password?token=${data.resetToken}`)
       }
     } catch (err) {
-      setError(err.message || 'Invalid email or password')
+      setError(err.message || 'Failed to send reset email')
     } finally {
       setLoading(false)
     }
@@ -49,41 +45,26 @@ function Login() {
               onChange={(e) => {
                 setEmail(e.target.value)
                 setError('')
+                setSuccess('')
               }}
               className="login-input"
-              placeholder="Email"
+              placeholder="Enter your email"
               required
               autoFocus
             />
           </div>
 
-          <div className="form-group">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                setError('')
-              }}
-              className="login-input"
-              placeholder="Password"
-              required
-            />
-          </div>
-
           {error && <p className="error-message">{error}</p>}
+          {success && <p className="error-message" style={{ color: '#4ade80', whiteSpace: 'pre-line' }}>{success}</p>}
 
           <button type="submit" className="login-button" disabled={loading}>
-            {loading ? 'LOGGING IN...' : 'LOGIN'}
+            {loading ? 'SENDING...' : 'SEND RESET LINK'}
           </button>
         </form>
 
         <div className="login-footer">
           <p className="login-signup-link">
-            Don't have an account? <Link to="/signup">Sign Up</Link>
-          </p>
-          <p className="login-signup-link" style={{ marginTop: '0.5rem' }}>
-            <Link to="/forgot-password">Forgot Password?</Link>
+            Remember your password? <Link to="/login">Login</Link>
           </p>
           <a href="/" className="back-link">← Back to Main Site</a>
         </div>
@@ -92,4 +73,4 @@ function Login() {
   )
 }
 
-export default Login
+export default ForgotPassword

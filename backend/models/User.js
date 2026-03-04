@@ -145,6 +145,15 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: null, // null means unlimited/not set
     min: 0
+  },
+  // Password reset fields
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

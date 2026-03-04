@@ -61,7 +61,7 @@ router.post('/', requireRestaurant, [
   body('discountDescription').notEmpty().trim(),
   body('peopleToCall').isInt({ min: 1 }),
   body('duration').isInt({ min: 1 }),
-  body('durationUnit').isIn(['minutes', 'hours', 'days']),
+  body('durationUnit').isIn(['hours', 'days']),
   body('selectedLocations').isArray().notEmpty()
 ], async (req, res) => {
   try {
@@ -368,17 +368,78 @@ router.post('/', requireRestaurant, [
 })
 
 // @route   GET /api/codes
-// @desc    Get all codes for restaurant
+// @desc    Get all codes for restaurant (with optional filters)
 // @access  Private (Restaurant)
 router.get('/', requireRestaurant, async (req, res) => {
   try {
-    const codes = await Code.find({ restaurantId: req.user._id })
+    const { hoursAgo, expiredOnly } = req.query
+    const query = { restaurantId: req.user._id }
+
+    // Filter by creation time (e.g., codes created in last 24-48 hours)
+    if (hoursAgo) {
+      const hours = parseInt(hoursAgo)
+      if (!isNaN(hours) && hours > 0) {
+        const cutoffDate = new Date()
+        cutoffDate.setHours(cutoffDate.getHours() - hours)
+        query.createdAt = { $gte: cutoffDate }
+      }
+    }
+
+    // Filter for expired codes only
+    if (expiredOnly === 'true') {
+      query.expiresAt = { $lt: new Date() }
+    }
+
+    const codes = await Code.find(query)
       .sort({ createdAt: -1 })
       .populate('restaurantId', 'restaurantName email')
 
     res.json({ codes })
   } catch (error) {
     console.error('Get codes error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   DELETE /api/codes/expired
+// @desc    Delete all expired codes for restaurant
+// @access  Private (Restaurant)
+router.delete('/expired', requireRestaurant, async (req, res) => {
+  try {
+    const result = await Code.deleteMany({
+      restaurantId: req.user._id,
+      expiresAt: { $lt: new Date() }
+    })
+
+    res.json({
+      message: `Deleted ${result.deletedCount} expired code(s)`,
+      deletedCount: result.deletedCount
+    })
+  } catch (error) {
+    console.error('Delete expired codes error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   DELETE /api/codes/:id
+// @desc    Delete a specific code
+// @access  Private (Restaurant)
+router.delete('/:id', requireRestaurant, async (req, res) => {
+  try {
+    const code = await Code.findOne({
+      _id: req.params.id,
+      restaurantId: req.user._id
+    })
+
+    if (!code) {
+      return res.status(404).json({ message: 'Code not found' })
+    }
+
+    await Code.deleteOne({ _id: code._id })
+
+    res.json({ message: 'Code deleted successfully' })
+  } catch (error) {
+    console.error('Delete code error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

@@ -8,6 +8,8 @@ import RestaurantOnboarding from './pages/RestaurantOnboarding'
 import RestaurantAdmin from './pages/RestaurantAdmin'
 import DukesAdmin from './pages/DukesAdmin'
 import Pricing from './pages/Pricing'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
       <Route path="/server/validate" element={<ServerValidation />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/restaurant/onboarding" element={<RestaurantOnboarding />} />
       <Route path="/restaurant/admin" element={<RestaurantAdmin />} />

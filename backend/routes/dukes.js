@@ -66,17 +66,68 @@ router.get('/restaurants/:id/codes', async (req, res) => {
 })
 
 // @route   GET /api/dukes/codes
-// @desc    Get all codes across all restaurants
+// @desc    Get all codes across all restaurants (with optional filters)
 // @access  Private (Dukes)
 router.get('/codes', async (req, res) => {
   try {
-    const codes = await Code.find()
+    const { hoursAgo, expiredOnly, restaurantId } = req.query
+    const query = {}
+
+    // Filter by restaurant if specified
+    if (restaurantId) {
+      query.restaurantId = restaurantId
+    }
+
+    // Filter by creation time (e.g., codes created in last 24-48 hours)
+    if (hoursAgo) {
+      const hours = parseInt(hoursAgo)
+      if (!isNaN(hours) && hours > 0) {
+        const cutoffDate = new Date()
+        cutoffDate.setHours(cutoffDate.getHours() - hours)
+        query.createdAt = { $gte: cutoffDate }
+      }
+    }
+
+    // Filter for expired codes only
+    if (expiredOnly === 'true') {
+      query.expiresAt = { $lt: new Date() }
+    }
+
+    // Filter for active codes only
+    if (expiredOnly === 'false') {
+      query.expiresAt = { $gte: new Date() }
+    }
+
+    const codes = await Code.find(query)
       .populate('restaurantId', 'restaurantName email')
       .sort({ createdAt: -1 })
 
     res.json({ codes })
   } catch (error) {
     console.error('Get all codes error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   DELETE /api/dukes/codes/expired
+// @desc    Delete all expired codes (auto-delete codes expired more than 60 days ago)
+// @access  Private (Dukes)
+router.delete('/codes/expired', async (req, res) => {
+  try {
+    const now = new Date()
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+
+    // Delete codes that expired more than 60 days ago
+    const result = await Code.deleteMany({
+      expiresAt: { $lt: sixtyDaysAgo }
+    })
+
+    res.json({
+      message: `Deleted ${result.deletedCount} expired code(s) (expired more than 60 days ago)`,
+      deletedCount: result.deletedCount
+    })
+  } catch (error) {
+    console.error('Delete expired codes error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

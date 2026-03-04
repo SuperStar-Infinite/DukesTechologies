@@ -20,6 +20,7 @@ function RestaurantAdmin() {
     selectedLocations: []
   })
   const [pastCodes, setPastCodes] = useState([])
+  const [codeFilter, setCodeFilter] = useState({ hoursAgo: '', expiredOnly: false })
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [editingLocation, setEditingLocation] = useState(null)
@@ -70,10 +71,10 @@ function RestaurantAdmin() {
     }
   }
 
-  // Fetch codes
-  const fetchCodes = async () => {
+  // Fetch codes with optional filters
+  const fetchCodes = async (hoursAgo = null, expiredOnly = false) => {
     try {
-      const { codes } = await codeAPI.getAll()
+      const { codes } = await codeAPI.getAll(hoursAgo, expiredOnly)
       setPastCodes(codes || [])
     } catch (error) {
       console.error('Error fetching codes:', error)
@@ -458,7 +459,7 @@ function RestaurantAdmin() {
                   e.target.style.background = 'rgba(255, 255, 255, 0.1)'
                 }}
               >
-                Purchase Credits
+                Purchase Call Credits
               </button>
             </div>
           </div>
@@ -503,8 +504,17 @@ function RestaurantAdmin() {
                   fontWeight: '600',
                   boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
                 }}>
-                  {userData.peopleOnList} {userData.peopleOnList === 1 ? 'person' : 'people'} you can call!
+                  {userData.peopleOnList} {userData.peopleOnList === 1 ? 'person' : 'people'} on Relay VIP list you can call!
                 </div>
+                <p style={{
+                  fontSize: '0.85rem',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  marginTop: '0.5rem',
+                  marginBottom: '0',
+                  textAlign: 'center'
+                }}>
+                  This will be updated every Wednesday
+                </p>
               </div>
             )}
 
@@ -616,7 +626,6 @@ function RestaurantAdmin() {
                   onChange={handleInputChange}
                   className="form-select"
                 >
-                  <option value="minutes">Minutes</option>
                   <option value="hours">Hours</option>
                   <option value="days">Days</option>
                 </select>
@@ -639,27 +648,98 @@ function RestaurantAdmin() {
           <div className="past-codes-section">
             <div className="past-codes-header">
               <h2>Past Codes Performance</h2>
-              <button
-                type="button"
-                className="refresh-btn-modern"
-                onClick={async (e) => {
-                  const btn = e.currentTarget
-                  btn.classList.add('rotating')
-                  await fetchCodes()
-                  await fetchUserData()
-                  setMessage('Data refreshed!')
-                  setTimeout(() => {
-                    btn.classList.remove('rotating')
-                    setMessage('')
-                  }, 2000)
-                }}
-                title="Refresh data"
-              >
-                <svg className="refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                </svg>
-                <span>Refresh</span>
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Filter Controls */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    placeholder="Hours ago (e.g., 24)"
+                    value={codeFilter.hoursAgo}
+                    onChange={(e) => setCodeFilter(prev => ({ ...prev, hoursAgo: e.target.value }))}
+                    style={{
+                      padding: '0.5rem',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white',
+                      width: '120px'
+                    }}
+                  />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'white', fontSize: '0.9rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={codeFilter.expiredOnly}
+                      onChange={(e) => setCodeFilter(prev => ({ ...prev, expiredOnly: e.target.checked }))}
+                    />
+                    Expired only
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fetchCodes(codeFilter.hoursAgo || null, codeFilter.expiredOnly)
+                    }}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Filter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Delete all expired codes? This cannot be undone.')) {
+                        try {
+                          const result = await codeAPI.deleteExpired()
+                          setMessage(`Deleted ${result.deletedCount} expired code(s)`)
+                          await fetchCodes(codeFilter.hoursAgo || null, codeFilter.expiredOnly)
+                          setTimeout(() => setMessage(''), 3000)
+                        } catch (error) {
+                          setMessage(error.message || 'Failed to delete expired codes')
+                        }
+                      }
+                    }}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Delete Expired
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="refresh-btn-modern"
+                  onClick={async (e) => {
+                    const btn = e.currentTarget
+                    btn.classList.add('rotating')
+                    setCodeFilter({ hoursAgo: '', expiredOnly: false })
+                    await fetchCodes()
+                    await fetchUserData()
+                    setMessage('Data refreshed!')
+                    setTimeout(() => {
+                      btn.classList.remove('rotating')
+                      setMessage('')
+                    }, 2000)
+                  }}
+                  title="Refresh data"
+                >
+                  <svg className="refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                  </svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
             <div className="codes-table">
               <table>
@@ -671,6 +751,7 @@ function RestaurantAdmin() {
                     <th>Submissions</th>
                     <th>Revenue</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -687,6 +768,36 @@ function RestaurantAdmin() {
                           <span className={`status-badge ${isExpired ? 'expired' : 'active'}`}>
                             {isExpired ? 'Expired' : 'Active'}
                           </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (window.confirm(`Delete code "${code.code}"? This cannot be undone.`)) {
+                                try {
+                                  await codeAPI.delete(code._id)
+                                  setMessage('Code deleted successfully')
+                                  await fetchCodes(codeFilter.hoursAgo || null, codeFilter.expiredOnly)
+                                  setTimeout(() => setMessage(''), 3000)
+                                } catch (error) {
+                                  setMessage(error.message || 'Failed to delete code')
+                                }
+                              }
+                            }}
+                            disabled={!isExpired}
+                            style={{
+                              padding: '0.25rem 0.75rem',
+                              background: isExpired ? '#ef4444' : '#666',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: isExpired ? 'pointer' : 'not-allowed',
+                              fontSize: '0.85rem',
+                              opacity: isExpired ? 1 : 0.5
+                            }}
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     )

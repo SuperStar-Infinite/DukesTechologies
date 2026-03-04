@@ -150,7 +150,7 @@ BACKEND_URL=https://api.yourdomain.com  # or your backend URL
 ### Test Call Credits Purchase
 
 1. Go to admin panel
-2. Click "Purchase Credits"
+2. Click "Purchase Call Credits"
 3. Enter an amount (e.g., $10)
 4. Complete checkout
 5. Verify:

@@ -2,6 +2,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
+import { sendPasswordResetEmail } from '../utils/email.js'
 
 const router = express.Router()
 
@@ -147,6 +148,103 @@ router.get('/me', async (req, res) => {
     })
   } catch (error) {
     res.status(401).json({ message: 'Invalid token' })
+  }
+})
+
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset (sends reset token via email)
+// @access  Public
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    const { email } = req.body
+    const user = await User.findOne({ email: email.toLowerCase() })
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({ 
+        message: 'If an account exists with that email, a password reset link has been sent.' 
+      })
+    }
+
+    // Generate reset token
+    const resetToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '1h' // Token expires in 1 hour
+    })
+
+    user.resetPasswordToken = resetToken
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+    await user.save()
+
+    // Send password reset email
+    const emailResult = await sendPasswordResetEmail(user.email, resetToken)
+
+    // In development mode, also return the token for testing
+    const response = { 
+      message: 'If an account exists with that email, a password reset link has been sent.'
+    }
+
+    if (process.env.NODE_ENV === 'development' || emailResult.method === 'console') {
+      response.resetToken = resetToken
+      response.emailSent = emailResult.method === 'email'
+    }
+
+    res.json(response)
+  } catch (error) {
+    console.error('Forgot password error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 6 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    const { token, password } = req.body
+
+    // Verify token
+    let decoded
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET)
+    } catch (error) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' })
+    }
+
+    const user = await User.findOne({
+      _id: decoded.userId,
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() }
+    })
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' })
+    }
+
+    // Update password
+    user.password = password
+    user.resetPasswordToken = null
+    user.resetPasswordExpires = null
+    await user.save()
+
+    res.json({ message: 'Password reset successfully. You can now login with your new password.' })
+  } catch (error) {
+    console.error('Reset password error:', error)
+    res.status(500).json({ message: 'Server error' })
   }
 })
 

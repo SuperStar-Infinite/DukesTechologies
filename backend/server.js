@@ -11,6 +11,7 @@ import serverValidationRoutes from './routes/serverValidation.js'
 import dukesRoutes from './routes/dukes.js'
 import uploadRoutes from './routes/upload.js'
 import stripeRoutes from './routes/stripe.js'
+import Code from './models/Code.js'
 
 dotenv.config()
 
@@ -245,6 +246,29 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/relay', {
 })
 .then(() => {
   console.log('✅ Connected to MongoDB')
+  
+  // Auto-delete expired codes (expired more than 60 days ago) - runs daily
+  const deleteOldExpiredCodes = async () => {
+    try {
+      const now = new Date()
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+      
+      const result = await Code.deleteMany({
+        expiresAt: { $lt: sixtyDaysAgo }
+      })
+      
+      if (result.deletedCount > 0) {
+        console.log(`🗑️  Auto-deleted ${result.deletedCount} expired code(s) (expired more than 60 days ago)`)
+      }
+    } catch (error) {
+      console.error('❌ Error auto-deleting expired codes:', error)
+    }
+  }
+  
+  // Run immediately on startup, then daily
+  deleteOldExpiredCodes()
+  setInterval(deleteOldExpiredCodes, 24 * 60 * 60 * 1000) // Run every 24 hours
+  
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`)
   })
