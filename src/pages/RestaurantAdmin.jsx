@@ -68,6 +68,14 @@ function RestaurantAdmin() {
       setSubscriptionData(data)
     } catch (error) {
       console.error('Error fetching subscription data:', error)
+      // Filter out Stripe customer errors (happens when switching Stripe accounts)
+      const errorMessage = error.message || ''
+      if (errorMessage.includes('No such customer') || errorMessage.includes('customer')) {
+        console.warn('Stripe customer not found - will be recreated on next purchase')
+        // Clear the error message so it doesn't show to user
+        // The subscription section won't display if subscriptionData is null
+      }
+      // Don't show error to user, just log it
     }
   }
 
@@ -192,7 +200,14 @@ function RestaurantAdmin() {
       }
     } catch (error) {
       console.error('Call credits purchase error:', error)
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to process payment'
+      let errorMessage = error.response?.data?.message || error.message || 'Failed to process payment'
+      
+      // Filter out Stripe customer errors - these are handled automatically
+      if (errorMessage.includes('No such customer')) {
+        errorMessage = 'Please try again. Your account is being updated.'
+        // The backend will automatically create a new customer on retry
+      }
+      
       setMessage(errorMessage)
       setProcessingPayment(false)
     }
@@ -316,7 +331,7 @@ function RestaurantAdmin() {
     <div className="restaurant-admin-container">
       <div className="restaurant-admin-content">
         {/* Success Message Banner */}
-        {message && (
+        {message && !message.includes('No such customer') && (
           <div style={{
             background: message.includes('success') || message.includes('Success') 
               ? 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)' 

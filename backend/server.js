@@ -174,6 +174,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
               user.stripeSubscriptionId = subscription.id
             }
             await user.save()
+          } else {
+            console.warn(`User not found for Stripe customer: ${customerId}`)
           }
           break
         }

@@ -10,7 +10,8 @@
     "seed": "node scripts/seed.js",
     "check-env": "node scripts/check-env.js",
     "change-password": "node scripts/change-password.js",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "reset-stripe": "node scripts/reset-stripe-customers.js"
   },
   "keywords": [
     "relay",

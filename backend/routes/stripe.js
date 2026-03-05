@@ -153,6 +153,20 @@ router.post('/create-checkout-session', authenticate, requireRestaurant, async (
 
     // Create or get Stripe customer
     let customerId = user.stripeCustomerId
+    if (customerId) {
+      // Verify customer exists in Stripe
+      try {
+        await stripe.customers.retrieve(customerId)
+      } catch (error) {
+        // Customer doesn't exist in current Stripe account (e.g., switched accounts)
+        console.warn(`Customer ${customerId} not found in Stripe, creating new customer`)
+        customerId = null
+        user.stripeCustomerId = null
+        user.stripeSubscriptionId = null
+        await user.save()
+      }
+    }
+    
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -236,6 +250,20 @@ router.post('/create-payment-intent', authenticate, requireRestaurant, async (re
 
     // Create or get Stripe customer
     let customerId = user.stripeCustomerId
+    if (customerId) {
+      // Verify customer exists in Stripe
+      try {
+        await stripe.customers.retrieve(customerId)
+      } catch (error) {
+        // Customer doesn't exist in current Stripe account (e.g., switched accounts)
+        console.warn(`Customer ${customerId} not found in Stripe, creating new customer`)
+        customerId = null
+        user.stripeCustomerId = null
+        user.stripeSubscriptionId = null
+        await user.save()
+      }
+    }
+    
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
